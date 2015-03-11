@@ -1,14 +1,17 @@
 package com.mc.util;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.ref.WeakReference;
+import java.lang.reflect.Field;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -19,11 +22,116 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.CompressFormat;
 import android.graphics.BitmapFactory;
-
+import android.os.Build;
+import android.os.Environment;
+import android.telephony.TelephonyManager;
+import android.util.Log;
+import android.app.Activity;
+import com.nrs.utils.HttpAssist;
 import com.xy.fy.util.StaticVarUtil;
 
 public class Util {
 	
+	private final static String TAG = "util";
+	/**
+	 * 	用来存储设备信息和异常信息
+	 * 	Map<String,String>			:		mLogInfo	
+	 * 	@since 2013-3-21下午8:46:15
+	 */
+	/**
+	 * 	getDeviceInfo:{获取设备参数信息}
+	 *  ──────────────────────────────────
+	 * 	@param 		paramContext
+	 * 	@throws 
+	 * 	@since  	I used to be a programmer like you, then I took an arrow in the knee　Ver 1.0
+	 *	──────────────────────────────────────────────────────────────────────────────────────────────────────
+	 *	2013-3-24下午12:30:02	Modified By Norris 
+	 *	──────────────────────────────────────────────────────────────────────────────────────────────────────
+	 */
+	public static void uploadDeviceInfo(Context paramContext) {
+		
+		 Map<String , String> mLogInfo = new HashMap<String , String>() ;
+		try {
+			// 获得包管理器
+			PackageManager mPackageManager = paramContext.getPackageManager() ;
+			// 得到该应用的信息，即主Activity
+			PackageInfo mPackageInfo = mPackageManager.getPackageInfo(
+					paramContext.getPackageName() , PackageManager.GET_ACTIVITIES) ;
+			if(mPackageInfo != null) {
+				String versionName = mPackageInfo.versionName == null ? "null"
+						: mPackageInfo.versionName ;
+				String versionCode = mPackageInfo.versionCode + "" ;
+				mLogInfo.put("versionName" , versionName) ;
+				mLogInfo.put("versionCode" , versionCode) ;
+			}
+		}
+		catch(NameNotFoundException e) {
+			e.printStackTrace() ;
+		}
+		// 反射机制
+		Field[] mFields = Build.class.getDeclaredFields() ;
+		// 迭代Build的字段key-value  此处的信息主要是为了在服务器端手机各种版本手机报错的原因
+		for(Field field : mFields) {
+			try {
+				field.setAccessible(true) ;
+				mLogInfo.put(field.getName() , field.get("").toString()) ;
+				Log.d(TAG , field.getName() + ":" + field.get("")) ;
+			}
+			catch(IllegalArgumentException e) {
+				e.printStackTrace() ;
+			}
+			catch(IllegalAccessException e) {
+				e.printStackTrace() ;
+			}
+		}
+		StringBuffer mStringBuffer = new StringBuffer() ;
+		for(Map.Entry<String , String> entry : mLogInfo.entrySet()) {
+			String key = entry.getKey() ;
+			String value = entry.getValue() ;
+			mStringBuffer.append(key + "=" + value + "\r\n") ;
+		}
+		
+		final String mFileName = ((TelephonyManager) paramContext.getSystemService( paramContext.TELEPHONY_SERVICE))
+				.getDeviceId()+".txt";
+		if(Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
+			try {
+				File mDirectory = new File(Environment.getExternalStorageDirectory()
+						+ "/xuptscore/devInfos") ;
+				
+				Log.v(TAG , mDirectory.toString()) ;
+				if( ! mDirectory.exists())
+					mDirectory.mkdir() ;
+				FileOutputStream mFileOutputStream = new FileOutputStream(mDirectory + "/"
+						+ mFileName) ;
+				mFileOutputStream.write(mStringBuffer.toString().getBytes()) ;
+				mFileOutputStream.close();
+				//上传服务器
+				/*new Thread(new Runnable() {
+					
+					public void run() {
+						// TODO Auto-generated method stub
+						HttpAssist.uploadFile(new File(Environment.getExternalStorageDirectory()+ "xuptscore/devInfos" + "/"	+ mFileName),"devsdk");
+					}
+				}).start();*/
+			}
+			catch(FileNotFoundException e) {
+				e.printStackTrace() ;
+			}
+			catch(IOException e) {
+				e.printStackTrace() ;
+			}
+		}
+	}
+	
+	public static int getAndroidSDKVersion() {
+        int version = 0;
+        try {
+            version = Integer.valueOf(android.os.Build.VERSION.SDK);
+        } catch (NumberFormatException e) {
+            Log.e("getAndroidSDKVersion", e.toString());
+        }
+        return version;
+    }
 	/**
 	 * 将图片保存到本地
 	 * @param bmp
@@ -127,11 +235,8 @@ public class Util {
 			String realXh = "";
 			String realTime = Passport.jiemi(viewstate, String.valueOf(new char[]{2,4,8,8,2,2}));
 			HashMap<String, String> xhAndXnMap = new HashMap<String, String>();
-			System.out.println(realTime);
 			try {
-				System.out.println(realTime);
 				realXh = Passport.jiemi(data, realTime);
-				
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
